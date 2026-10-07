@@ -21,8 +21,8 @@
 - No full assignment denominator, so no attendance rate.
 - Addressed and dashboard summaries are not imported as incidents.
 - Firebase default database is active. Created polkcounty_metadata/app with district Polk County; unrelated collections retained.
-- Real Firebase credentials and Streamlit deployment remain user setup steps.
-- Hosted read/write must be verified after setup.
+- User configured Streamlit secrets; deployed app reads Firestore successfully.
+- Hosted import/read verified: 617 incidents persisted; import log completed with 7 excluded invalid rows. No data deletion implemented.
 
 Keep this file updated when behavior changes.
 
@@ -37,3 +37,9 @@ Keep this file updated when behavior changes.
 - Persistent import log with atomic batch progress, interruption status and safe retry.
 - Polk-only validation at the storage boundary; no session/local disk fallback for saved history.
 - Actual deployed app discovered in Safari: https://polkcounty-vv8yth5wdoz98uadkydq2f.streamlit.app/.
+
+- 11 automated tests passed, including cloud storage reconnect semantics, safe repeat imports, interrupted batches, storage district validation, filtered dashboards and authentication.
+- Deployed charts use Plotly to support the Python 3.14 runtime.
+
+- Live dashboard verified: 617 incidents, 23 No Show, 594 Late Cancellation, 480 employee identities and 99 recurring identities; counts unchanged after Refresh history.
+- Actual Firestore import document verified: saved_records=617, total_records=617, status=completed, excluded_invalid_rows=7.

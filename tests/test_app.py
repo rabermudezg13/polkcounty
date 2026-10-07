@@ -51,6 +51,10 @@ class AppTests(unittest.TestCase):
             app.run()
             self.assertEqual(len(app.exception), 0)
             self.assertEqual([metric.value for metric in app.metric], ['2','1','1','1','1'])
+            from datetime import date
+            app.date_input[0].set_value(date(2026,9,2)).run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual([metric.value for metric in app.metric], ['1','0','1','1','0'])
             app.sidebar.radio[0].set_value('Recurring People').run()
             self.assertEqual(len(app.exception), 0)
             self.assertEqual(app.metric[0].value, '1')
