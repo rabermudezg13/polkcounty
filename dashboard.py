@@ -1,5 +1,5 @@
 """Summary-first visuals using the same filtered incidents as the detail table."""
-import altair as alt
+import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 
@@ -37,32 +37,38 @@ def render_dashboard(records, table):
     filtered = pd.DataFrame(selected)
     filtered['Day'] = pd.to_datetime(filtered['date'])
     filtered['School'] = filtered.get('school', pd.Series('', index=filtered.index)).fillna('').replace('', 'Unspecified school')
-    color = alt.Color('status:N', title='Incident type', scale=alt.Scale(domain=list(STATUSES), range=COLORS))
     left, right = st.columns([2, 1])
     with left.container(border=True):
         st.subheader('Incident trend')
         st.caption('Weekly totals within your selected dates')
-        chart = alt.Chart(filtered).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
-            x=alt.X('yearweek(Day):T', title=None, axis=alt.Axis(format='%b %d', labelAngle=0)),
-            y=alt.Y('count():Q', title='Incidents', axis=alt.Axis(tickMinStep=1)), color=color,
-            tooltip=[alt.Tooltip('yearweek(Day):T', title='Week', format='%b %d, %Y'),
-                     alt.Tooltip('status:N', title='Type'), alt.Tooltip('count():Q', title='Incidents')])
-        st.altair_chart(chart.properties(height=270).configure_view(stroke=None), use_container_width=True)
+        weekly = filtered.assign(Week=filtered.Day.dt.to_period('W-SUN').dt.start_time)
+        totals = weekly.groupby(['Week', 'status']).size().unstack(fill_value=0)
+        chart = go.Figure()
+        for status, color in zip(STATUSES, COLORS):
+            values = totals[status] if status in totals else [0] * len(totals)
+            chart.add_bar(x=totals.index, y=values, name=status, marker_color=color)
+        chart.update_layout(height=300, barmode='stack', margin=dict(l=10,r=10,t=10,b=10),
+                            xaxis_title=None, yaxis_title='Incidents', legend=dict(orientation='h',y=1.15))
+        chart.update_yaxes(dtick=1 if len(selected)<20 else None)
+        st.plotly_chart(chart, use_container_width=True, config={'displayModeBar':False})
     with right.container(border=True):
         st.subheader('Incident mix')
         st.caption('Share of recorded incidents')
-        mix = alt.Chart(filtered).mark_arc(innerRadius=75, outerRadius=110).encode(
-            theta=alt.Theta('count():Q'), color=color,
-            tooltip=[alt.Tooltip('status:N', title='Type'), alt.Tooltip('count():Q', title='Incidents')])
-        st.altair_chart(mix.properties(height=270).configure_view(stroke=None), use_container_width=True)
+        counts = [sum(r['status']==status for r in selected) for status in STATUSES]
+        mix = go.Figure(go.Pie(labels=list(STATUSES), values=counts, hole=.7,
+                              marker_colors=COLORS, textinfo='percent', sort=False))
+        mix.update_layout(height=300, margin=dict(l=5,r=5,t=10,b=10),
+                          legend=dict(orientation='h',y=-.1),
+                          annotations=[dict(text=str(len(selected)),x=.5,y=.5,showarrow=False,font_size=28)])
+        st.plotly_chart(mix, use_container_width=True, config={'displayModeBar':False})
     left, right = st.columns([1.4, 1])
     with left.container(border=True):
         st.subheader('Schools with most incidents')
         top = filtered.groupby('School').size().sort_values(ascending=False).head(8).reset_index(name='Incidents')
-        chart = alt.Chart(top).mark_bar(color='#5b7cfa', cornerRadiusEnd=4).encode(
-            x=alt.X('Incidents:Q', axis=alt.Axis(tickMinStep=1)),
-            y=alt.Y('School:N', sort='-x', title=None), tooltip=['School:N', 'Incidents:Q'])
-        st.altair_chart(chart.properties(height=250).configure_view(stroke=None), use_container_width=True)
+        chart = go.Figure(go.Bar(x=top['Incidents'], y=top['School'], orientation='h', marker_color='#5b7cfa'))
+        chart.update_layout(height=270, margin=dict(l=10,r=10,t=10,b=10), xaxis_title='Incidents',
+                            yaxis=dict(autorange='reversed'))
+        st.plotly_chart(chart, use_container_width=True, config={'displayModeBar':False})
     with right.container(border=True):
         st.subheader('Repeat incidents')
         repeat = recurring_people(selected)
