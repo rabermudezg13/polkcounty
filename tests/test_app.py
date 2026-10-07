@@ -50,7 +50,7 @@ class AppTests(unittest.TestCase):
             app.session_state['authenticated'] = True
             app.run()
             self.assertEqual(len(app.exception), 0)
-            self.assertEqual([metric.value for metric in app.metric], ['2','1','1','1'])
+            self.assertEqual([metric.value for metric in app.metric], ['2','1','1','1','1'])
             app.sidebar.radio[0].set_value('Recurring People').run()
             self.assertEqual(len(app.exception), 0)
             self.assertEqual(app.metric[0].value, '1')

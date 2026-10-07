@@ -46,3 +46,14 @@ python -m compileall app.py attendance.py storage.py
 ```
 
 Firebase persistence and the hosted deployment must be verified after real credentials are configured. The actual workbook is not committed to this repository.
+
+## Persistent cloud data
+
+- Firestore `(default)` in `subparty` stores incidents in `polkcounty_incidents`. Streamlit sessions and restarts do not own this data.
+- `polkcounty_imports` stores import filename, worksheet, excluded invalid count, saved count, timestamps and completion status. Each batch atomically saves incidents and its progress. If interrupted, committed incidents remain available; repeat the upload to finish without duplication.
+- `polkcounty_metadata/app` retains schema version and the last successful import.
+- Existing cloud history is loaded on every page run. **Refresh history** reloads the current cloud data.
+- The dashboard applies date and school filters to cards, charts, recurring counts and details. The separate Recurring People page covers all saved history.
+- CSV exports provide a downloadable copy; they are not an automatic database backup.
+
+Published app: https://polkcounty-vv8yth5wdoz98uadkydq2f.streamlit.app/

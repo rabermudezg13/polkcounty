@@ -20,7 +20,7 @@
 - Name-based matching may merge same-name people; ID changes require reconciliation.
 - No full assignment denominator, so no attendance rate.
 - Addressed and dashboard summaries are not imported as incidents.
-- Firebase console currently unavailable to the browser account; no content deleted.
+- Firebase default database is active. Created polkcounty_metadata/app with district Polk County; unrelated collections retained.
 - Real Firebase credentials and Streamlit deployment remain user setup steps.
 - Hosted read/write must be verified after setup.
 
@@ -30,3 +30,10 @@ Keep this file updated when behavior changes.
 - 8 automated tests passed: parsing, filtering, deduplication, invalid rows, recurrence, CSV protection, sign-in/sign-out and report UI with synthetic history.
 - Source workbook: 617 valid unique Polk incidents (23 No Show; 594 Late Cancellation, including 207 Unassisted), 2 duplicates, 7 invalid rows without employee identity; 99 recurring identities at threshold 2.
 - Dates: August 11 through October 6, 2026. Real workbook and personal data are excluded from Git.
+
+## Dashboard and persistence update
+- Modern responsive card layout; weekly trend, incident mix, top schools and recurring employees for the selected period/school.
+- Cloud connection indicator, saved count and explicit refresh.
+- Persistent import log with atomic batch progress, interruption status and safe retry.
+- Polk-only validation at the storage boundary; no session/local disk fallback for saved history.
+- Actual deployed app discovered in Safari: https://polkcounty-vv8yth5wdoz98uadkydq2f.streamlit.app/.

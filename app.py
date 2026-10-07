@@ -5,14 +5,30 @@ import pandas as pd
 import streamlit as st
 
 from attendance import STATUSES, export_csv, parse_workbook, recurring_people, sheet_names
-from storage import connect, load_records, save_records
+from storage import connect, load_records, save_records, load_imports
+from dashboard import render_dashboard
 
 st.set_page_config(page_title='Polk County | Attendance', page_icon='📋', layout='wide')
 st.markdown('''<style>
-.block-container {max-width:1200px;padding-top:2rem;}
-[data-testid="stMetric"] {background:#f1f5f9;padding:1.2rem;border-radius:12px;}
-[data-testid="stMetricLabel"], [data-testid="stMetricValue"] {color:#0f172a;}
+.block-container {max-width:1320px;padding-top:2rem;}
+[data-testid="stAppViewContainer"] {background:#f7f9fd;}
+[data-testid="stSidebar"] {background:#eef2fa;border-right:1px solid #e0e7f1;}
+h1 {letter-spacing:-.055em;font-weight:800 !important;color:#152442;}
+h2,h3 {color:#213354;letter-spacing:-.025em;}
+[data-testid="stMetric"] {background:white;padding:1.25rem;border-radius:16px;border:1px solid #e2e8f3;border-top:4px solid #5b7cfa;box-shadow:0 4px 18px #1e3a5f08;}
+[data-testid="stMetricLabel"] {color:#65718a;}
+[data-testid="stMetricValue"] {color:#152442;font-weight:750;font-size:2.2rem;}
+[data-testid="stVerticalBlockBorderWrapper"]>div {border-radius:16px !important;background:white;}
+.stButton button[kind="primary"] {background:#4f6ef7;border-color:#4f6ef7;border-radius:10px;}
 .credit {text-align:center;color:#64748b;padding:2rem 0;font-size:.9rem;}
+@media (prefers-color-scheme:dark) {
+[data-testid="stAppViewContainer"] {background:#101827;}
+[data-testid="stSidebar"] {background:#152035;border-color:#29364d;}
+h1,h2,h3 {color:#e5ecfa;}
+[data-testid="stMetric"], [data-testid="stVerticalBlockBorderWrapper"]>div {background:#18253a;border-color:#2c3b55;}
+[data-testid="stMetricValue"] {color:#e5ecfa;}
+[data-testid="stMetricLabel"] {color:#afbed6;}
+}
 </style>''', unsafe_allow_html=True)
 st.title('Polk County Attendance')
 st.caption('No shows, late cancellations and recurring incidents — all in one place.')
@@ -70,6 +86,14 @@ if client is not None:
 
 page = st.sidebar.radio('Workspace', ['Attendance Report', 'Import Excel', 'Recurring People', 'History'])
 st.sidebar.caption('District: Polk County')
+if history_loaded:
+    st.sidebar.success('Cloud history connected')
+    st.sidebar.caption(f'{len(records):,} saved incidents · refreshed on each page load')
+else:
+    st.sidebar.warning('Cloud history unavailable')
+if st.sidebar.button('Refresh history'):
+    st.rerun()
+
 
 DISPLAY = {'name': 'Employee', 'ats_id': 'ATS / KSN ID', 'email': 'Email', 'date': 'Incident date',
            'status': 'Incident type', 'school': 'School', 'case_number': 'Case / Confirmation #',
@@ -123,7 +147,7 @@ if page == 'Import Excel':
                         confirmed[0] = count
                         progress.progress(count / len(preview))
                     try:
-                        saved = save_records(client, preview, on_progress)
+                        saved = save_records(client, preview, on_progress, import_info={'filename': uploaded.name, 'sheet': sheet, 'excluded_invalid_rows': len(errors)})
                         st.session_state['save_notice'] = f'Saved {saved} incidents to Firebase.'
                         st.rerun()
                     except Exception:
@@ -141,27 +165,7 @@ elif page == 'Attendance Report':
     elif not records:
         st.info('Your history is empty. Import an Excel workbook to begin.')
     else:
-        dates = sorted(r['date'] for r in records)
-        left, right = st.columns(2)
-        start = left.date_input('From', pd.Timestamp(dates[0]).date())
-        end = right.date_input('To', pd.Timestamp(dates[-1]).date())
-        if start > end:
-            st.error('From must be on or before To.')
-        else:
-            selected = [r for r in records if start.isoformat() <= r['date'] <= end.isoformat()]
-            metrics = [('Total incidents', len(selected)), ('No Show', sum(r['status'] == 'No Show' for r in selected)),
-                ('Late Cancellation', sum(r['status'] == 'Late Cancellation' for r in selected)),
-                ('Employees affected', len({r['person_id'] for r in selected}))]
-            for col, (label, count) in zip(st.columns(4), metrics):
-                col.metric(label, count)
-            st.caption('Incident counts only: this tracker does not contain all attended assignments, so no attendance rate is calculated.')
-            if selected:
-                frame = pd.DataFrame(selected)
-                monthly = frame.groupby([frame.date.str.slice(0,7), 'status']).size().unstack(fill_value=0)
-                monthly = monthly.reindex(columns=list(STATUSES), fill_value=0)
-                st.subheader('Monthly incidents')
-                st.bar_chart(monthly, color=['#ef4444', '#3b82f6'])
-                table(sorted(selected, key=lambda r: r['date'], reverse=True), 'polkcounty_report.csv')
+        render_dashboard(records, table)
 elif page == 'Recurring People':
     st.subheader('Recurring People')
     st.caption('Employees with repeated incidents across all saved Polk County history. Updated automatically after each import.')
@@ -184,6 +188,15 @@ else:
                 (not search or search in ' '.join([r.get('name',''), r.get('ats_id',''), r.get('school','')]).casefold())]
     if history_loaded:
         table(sorted(selected, key=lambda r: r['date'], reverse=True), 'polkcounty_history.csv')
+        with st.expander('Import history'):
+            try:
+                imports = load_imports(client)
+                if imports:
+                    st.dataframe(pd.DataFrame(imports), hide_index=True, width='stretch')
+                else:
+                    st.caption('No import logs yet. New uploads will appear here.')
+            except Exception:
+                st.warning('Import log unavailable. Saved incidents are still displayed above.')
     else:
         st.info('Connect Firebase to view history.')
 
